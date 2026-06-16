@@ -1,4 +1,4 @@
-// browser.js - 通用浏览器自动化模块（支持多平台配置）
+// browser.js - 通用浏览器自动化模块（支持验证码处理）
 const puppeteer = require('puppeteer');
 const path = require('path');
 const fs = require('fs');
@@ -44,18 +44,10 @@ class BrowserAutomation {
       inputSelector: config.inputSelector || 'textarea',
       responseSelector: config.responseSelector || '[class*="message"]',
       modeSelector: config.modeSelector || null,
-      newConversationSelector: config.newConversationSelector || null
+      newConversationSelector: config.newConversationSelector || null,
+      captchaIndicators: config.captchaIndicators || []  // 验证码指示器
     };
     return this.savePlatforms();
-  }
-
-  // 删除平台
-  removePlatform(id) {
-    if (this.platforms[id]) {
-      delete this.platforms[id];
-      return this.savePlatforms();
-    }
-    return false;
   }
 
   // 启动浏览器
@@ -67,7 +59,7 @@ class BrowserAutomation {
       args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--start-maximized']
     });
     this.page = await this.browser.newPage();
-    await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    await this.page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await this.page.setViewport({ width: 1920, height: 1080 });
     console.log('浏览器已启动');
   }
@@ -83,12 +75,108 @@ class BrowserAutomation {
     await this.page.waitForTimeout(3000);
   }
 
+  // 检测验证码
+  async detectCaptcha(platformId) {
+    const platform = this.platforms[platformId];
+    if (!platform) return false;
+
+    // 通用验证码指示器
+    const commonCaptchaSelectors = [
+      'iframe[src*="captcha"]',
+      'iframe[src*="recaptcha"]',
+      'iframe[src*="challenge"]',
+      '[class*="captcha"]',
+      '[class*="challenge"]',
+      '[id*="captcha"]',
+      '[id*="challenge"]',
+      'input[name*="captcha"]',
+      '.cf-turnstile',  // Cloudflare
+      '#challenge-running',  // Cloudflare
+      '[data-sitekey]'  // reCAPTCHA
+    ];
+
+    // 平台特定的验证码指示器
+    const platformCaptchaSelectors = platform.captchaIndicators || [];
+
+    const allSelectors = [...commonCaptchaSelectors, ...platformCaptchaSelectors];
+
+    for (const selector of allSelectors) {
+      try {
+        const element = await this.page.$(selector);
+        if (element) {
+          console.log(`检测到验证码: ${selector}`);
+          return true;
+        }
+      } catch (e) {
+        // 继续
+      }
+    }
+
+    // 检查页面文本是否包含验证码相关关键词
+    const pageText = await this.page.evaluate(() => document.body.innerText);
+    const captchaKeywords = ['验证', '机器人', 'captcha', 'verify', 'human', '验证身份', '安全验证'];
+
+    for (const keyword of captchaKeywords) {
+      if (pageText.toLowerCase().includes(keyword.toLowerCase())) {
+        console.log(`检测到验证码关键词: ${keyword}`);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // 等待用户处理验证码
+  async waitForCaptchaResolution(timeout = 120000) {
+    console.log('\n⚠️  检测到验证码/人机验证');
+    console.log('请在浏览器中完成验证');
+    console.log(`超时时间: ${timeout/1000} 秒`);
+    console.log('完成验证后系统会自动继续...\n');
+
+    const start = Date.now();
+    let lastCheck = '';
+
+    while (Date.now() - start < timeout) {
+      await this.page.waitForTimeout(3000);
+
+      // 检查是否还在验证码页面
+      const stillHasCaptcha = await this.page.evaluate(() => {
+        const text = document.body.innerText;
+        const captchaKeywords = ['验证', '机器人', 'captcha', 'verify', 'human'];
+        return captchaKeywords.some(k => text.toLowerCase().includes(k.toLowerCase()));
+      });
+
+      if (!stillHasCaptcha) {
+        console.log('✅ 验证码已解决！');
+        await this.page.waitForTimeout(2000);  // 等待页面稳定
+        return true;
+      }
+
+      // 显示等待时间
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      const currentCheck = `已等待 ${elapsed} 秒...`;
+      if (currentCheck !== lastCheck) {
+        console.log(currentCheck);
+        lastCheck = currentCheck;
+      }
+    }
+
+    throw new Error('验证码处理超时');
+  }
+
   // 检查登录状态
   async isLoggedIn(platformId) {
     const platform = this.platforms[platformId];
     if (!platform) return false;
 
     try {
+      // 先检查是否有验证码
+      const hasCaptcha = await this.detectCaptcha(platformId);
+      if (hasCaptcha) {
+        await this.waitForCaptchaResolution();
+      }
+
+      // 检查输入框
       const selectors = platform.inputSelector.split(',').map(s => s.trim());
       for (const selector of selectors) {
         const input = await this.page.$(selector);
@@ -96,23 +184,34 @@ class BrowserAutomation {
       }
       return false;
     } catch (e) {
+      console.error('检查登录状态出错:', e.message);
       return false;
     }
   }
 
   // 等待登录
-  async waitForLogin(platformId, timeout = 60000) {
+  async waitForLogin(platformId, timeout = 120000) {
     const platform = this.platforms[platformId];
-    console.log(`⚠️  ${platform.name} 需要登录，请在浏览器中完成登录`);
+    console.log(`\n⚠️  ${platform.name} 需要登录`);
+    console.log('请在浏览器中完成登录');
+    console.log(`超时时间: ${timeout/1000} 秒\n`);
 
     const start = Date.now();
     while (Date.now() - start < timeout) {
       await this.page.waitForTimeout(3000);
+
+      // 检查验证码
+      const hasCaptcha = await this.detectCaptcha(platformId);
+      if (hasCaptcha) {
+        await this.waitForCaptchaResolution();
+      }
+
       if (await this.isLoggedIn(platformId)) {
-        console.log(`✅ 登录成功！`);
+        console.log('✅ 登录成功！');
         return true;
       }
     }
+
     throw new Error('登录超时');
   }
 
@@ -120,7 +219,7 @@ class BrowserAutomation {
   async startNewConversation(platformId) {
     const platform = this.platforms[platformId];
     if (!platform || !platform.newConversationSelector) {
-      console.log('该平台不支持新对话按钮，刷新页面');
+      console.log('刷新页面开始新对话...');
       await this.page.reload({ waitUntil: 'networkidle2' });
       await this.page.waitForTimeout(3000);
       this.conversationId = Date.now();
@@ -167,6 +266,12 @@ class BrowserAutomation {
 
     console.log(`发送问题: ${question.substring(0, 50)}...`);
 
+    // 检查验证码
+    const hasCaptcha = await this.detectCaptcha(platformId);
+    if (hasCaptcha) {
+      await this.waitForCaptchaResolution();
+    }
+
     // 选择模式
     if (mode && !this.conversationId) {
       await this.selectMode(platformId, mode);
@@ -205,6 +310,12 @@ class BrowserAutomation {
 
     while (Date.now() - start < maxWait) {
       await this.page.waitForTimeout(2000);
+
+      // 检查验证码
+      const hasCaptcha = await this.detectCaptcha(platformId);
+      if (hasCaptcha) {
+        await this.waitForCaptchaResolution();
+      }
 
       try {
         for (const selector of selectors) {
@@ -249,7 +360,7 @@ class BrowserAutomation {
       await this.navigateTo(platformId);
     }
 
-    // 检查登录
+    // 检查登录（包含验证码处理）
     if (!(await this.isLoggedIn(platformId))) {
       await this.waitForLogin(platformId);
     }
@@ -271,6 +382,13 @@ class BrowserAutomation {
   // 继续对话
   async continueConversation(platformId, question) {
     console.log(`追问: ${question.substring(0, 30)}...`);
+
+    // 检查验证码
+    const hasCaptcha = await this.detectCaptcha(platformId);
+    if (hasCaptcha) {
+      await this.waitForCaptchaResolution();
+    }
+
     await this.sendQuestion(platformId, question, null);
     const response = await this.waitForResponse(platformId);
     return { response };

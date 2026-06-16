@@ -9,7 +9,8 @@
         "expert": "div:has-text('专家模式')",
         "fast": null
       },
-      "newConversationSelector": "div:has-text('开启新对话')"
+      "newConversationSelector": "div:has-text('开启新对话')",
+      "captchaIndicators": []
     },
     "gemini": {
       "name": "Gemini",
@@ -17,7 +18,8 @@
       "inputSelector": "textarea, .ql-editor, [contenteditable='true']",
       "responseSelector": ".model-response-text, .response-content, [class*='message']",
       "modeSelector": null,
-      "newConversationSelector": null
+      "newConversationSelector": null,
+      "captchaIndicators": []
     },
     "chatgpt": {
       "name": "ChatGPT",
@@ -25,15 +27,14 @@
       "inputSelector": "textarea, #prompt-textarea",
       "responseSelector": ".markdown, [class*='message-content']",
       "modeSelector": null,
-      "newConversationSelector": null
-    },
-    "mimo": {
-      "name": "mimo",
-      "url": "https://aistudio.xiaomimimo.com/",
-      "inputSelector": "textarea",
-      "responseSelector": ".markdown",
-      "modeSelector": null,
-      "newConversationSelector": null
+      "newConversationSelector": "nav a[href='/']",
+      "captchaIndicators": [
+        "iframe[src*='challenges.cloudflare.com']",
+        "#challenge-running",
+        "#challenge-stage",
+        "[class*='cf-turnstile']",
+        "input[name='cf-turnstile-response']"
+      ]
     }
   }
 }

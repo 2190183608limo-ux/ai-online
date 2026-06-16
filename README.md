@@ -201,6 +201,20 @@ Workflow:
 - Sensitive data should not be sent to external AI platforms
 - The server runs locally and is not exposed to the internet
 
+## ⚠️ CAPTCHA Handling
+
+Some platforms (especially ChatGPT) may require human verification:
+
+1. **Automatic Detection**: The system automatically detects CAPTCHA/verification pages
+2. **Manual Resolution**: When detected, the system pauses and waits for you to complete verification in the browser
+3. **Auto-Resume**: After verification, the system automatically continues
+4. **Timeout**: If not resolved within 2 minutes, the operation times out
+
+**Tips for ChatGPT**:
+- Login once and keep the browser session active
+- The `browser-data/` folder preserves your login state
+- If repeatedly prompted, try using a different browser profile
+
 ## 🛠️ Troubleshooting
 
 ### Port already in use
