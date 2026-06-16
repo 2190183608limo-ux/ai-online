@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 对比系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    h1 { text-align: center; color: #1a1a2e; margin-bottom: 30px; font-size: 28px; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .card h2 { font-size: 18px; color: #333; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; color: #555; font-weight: 500; font-size: 14px; }
+    input, textarea, select { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; transition: border-color 0.2s; }
+    input:focus, textarea:focus, select:focus { outline: none; border-color: #4f46e5; }
+    textarea { height: 80px; resize: vertical; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: #4f46e5; color: white; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { margin-top: 10px; padding: 10px; border-radius: 8px; display: none; font-size: 14px; }
+    .status.success { background: #d1fae5; color: #065f46; display: block; }
+    .status.error { background: #fee2e2; color: #991b1b; display: block; }
+    .status.loading { background: #fef3c7; color: #92400e; display: block; }
+    .platforms-list { display: flex; flex-direction: column; gap: 10px; }
+    .platform-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .platform-info { flex: 1; }
+    .platform-name { font-weight: 600; color: #1e293b; }
+    .platform-url { font-size: 12px; color: #64748b; margin-top: 2px; }
+    .platform-actions { display: flex; gap: 8px; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .response-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-top: 15px; white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.6; max-height: 400px; overflow-y: auto; display: none; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+    .tab { padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; color: #64748b; transition: all 0.2s; }
+    .tab.active { background: #4f46e5; color: white; }
+    .tab:hover:not(.active) { background: #f1f5f9; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 AI 多平台对比系统</h1>
+
+    <!-- 平台管理 -->
+    <div class="card">
+      <h2>⚙️ 平台管理</h2>
+      <div class="tabs">
+        <div class="tab active" data-tab="list">平台列表</div>
+        <div class="tab" data-tab="add">添加平台</div>
+      </div>
+
+      <!-- 平台列表 -->
+      <div id="tab-list">
+        <div class="platforms-list" id="platformsList"></div>
+      </div>
+
+      <!-- 添加平台表单 -->
+      <div id="tab-add" class="hidden">
+        <div class="form-group">
+          <label>平台 ID（英文，如 chatgpt）</label>
+          <input type="text" id="newPlatformId" placeholder="chatgpt">
+        </div>
+        <div class="form-group">
+          <label>平台名称</label>
+          <input type="text" id="newPlatformName" placeholder="ChatGPT">
+        </div>
+        <div class="form-group">
+          <label>网址</label>
+          <input type="text" id="newPlatformUrl" placeholder="https://chat.openai.com/">
+        </div>
+        <div class="form-group">
+          <label>输入框选择器（多个用逗号分隔）</label>
+          <input type="text" id="newPlatformInput" placeholder="textarea, #prompt-textarea">
+        </div>
+        <div class="form-group">
+          <label>回答内容选择器</label>
+          <input type="text" id="newPlatformResponse" placeholder=".markdown, [class*='message']">
+        </div>
+        <button class="btn btn-success" id="addPlatformBtn">➕ 添加平台</button>
+        <div id="addStatus" class="status"></div>
+      </div>
+    </div>
+
+    <!-- 提问区域 -->
+    <div class="card">
+      <h2>💬 提问</h2>
+      <div class="form-group">
+        <label>选择平台</label>
+        <select id="platformSelect"></select>
+      </div>
+      <div class="form-group">
+        <label>你的问题</label>
+        <textarea id="questionInput" placeholder="输入你想问的问题..."></textarea>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" id="askBtn">🚀 发送提问</button>
+        <button class="btn btn-success" id="continueBtn">💬 继续对话</button>
+        <button class="btn" id="newConvBtn" style="background: #64748b; color: white;">🆕 新对话</button>
+      </div>
+      <div id="askStatus" class="status"></div>
+      <div class="response-box" id="responseBox"></div>
+    </div>
+
+    <!-- 历史记录 -->
+    <div class="card">
+      <h2>📜 最近提问</h2>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:3000/api';
+
+    // DOM
+    const platformsList = document.getElementById('platformsList');
+    const platformSelect = document.getElementById('platformSelect');
+    const questionInput = document.getElementById('questionInput');
+    const askBtn = document.getElementById('askBtn');
+    const continueBtn = document.getElementById('continueBtn');
+    const newConvBtn = document.getElementById('newConvBtn');
+    const askStatus = document.getElementById('askStatus');
+    const responseBox = document.getElementById('responseBox');
+    const historyList = document.getElementById('historyList');
+    const addPlatformBtn = document.getElementById('addPlatformBtn');
+    const addStatus = document.getElementById('addStatus');
+
+    // Tab 切换
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-list').classList.toggle('hidden', tab.dataset.tab !== 'list');
+        document.getElementById('tab-add').classList.toggle('hidden', tab.dataset.tab !== 'add');
+      });
+    });
+
+    // 显示状态
+    function showStatus(el, msg, type = 'loading') {
+      el.textContent = msg;
+      el.className = 'status ' + type;
+    }
+
+    // 加载平台列表
+    async function loadPlatforms() {
+      try {
+        const res = await fetch(`${API}/platforms`);
+        const data = await res.json();
+
+        // 列表
+        platformsList.innerHTML = Object.entries(data).map(([id, p]) => `
+          <div class="platform-item">
+            <div class="platform-info">
+              <div class="platform-name">${p.name}</div>
+              <div class="platform-url">${p.url}</div>
+            </div>
+            <div class="platform-actions">
+              <button class="btn btn-primary btn-sm" onclick="switchTo('${id}')">切换</button>
+              <button class="btn btn-danger btn-sm" onclick="deletePlatform('${id}')">删除</button>
+            </div>
+          </div>
+        `).join('') || '<p style="color: #999;">暂无平台</p>';
+
+        // 下拉框
+        platformSelect.innerHTML = Object.entries(data).map(([id, p]) =>
+          `<option value="${id}">${p.name}</option>`
+        ).join('');
+      } catch (e) {
+        console.error('加载平台失败:', e);
+      }
+    }
+
+    // 添加平台
+    addPlatformBtn.addEventListener('click', async () => {
+      const id = document.getElementById('newPlatformId').value.trim();
+      const name = document.getElementById('newPlatformName').value.trim();
+      const url = document.getElementById('newPlatformUrl').value.trim();
+      const inputSelector = document.getElementById('newPlatformInput').value.trim();
+      const responseSelector = document.getElementById('newPlatformResponse').value.trim();
+
+      if (!id || !name || !url) {
+        showStatus(addStatus, '请填写 ID、名称和网址', 'error');
+        return;
+      }
+
+      showStatus(addStatus, '添加中...', 'loading');
+      addPlatformBtn.disabled = true;
+
+      try {
+        const res = await fetch(`${API}/platforms`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, name, url, inputSelector, responseSelector })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showStatus(addStatus, '✅ 添加成功！', 'success');
+          loadPlatforms();
+          // 清空表单
+          document.getElementById('newPlatformId').value = '';
+          document.getElementById('newPlatformName').value = '';
+          document.getElementById('newPlatformUrl').value = '';
+          document.getElementById('newPlatformInput').value = '';
+          document.getElementById('newPlatformResponse').value = '';
+        } else {
+          showStatus(addStatus, '❌ ' + data.error, 'error');
+        }
+      } catch (e) {
+        showStatus(addStatus, '❌ 网络错误', 'error');
+      } finally {
+        addPlatformBtn.disabled = false;
+      }
+    });
+
+    // 切换平台
+    window.switchTo = async (platform) => {
+      showStatus(askStatus, `正在切换到 ${platform}...`, 'loading');
+      try {
+        await fetch(`${API}/switch-platform`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform })
+        });
+        showStatus(askStatus, `✅ 已切换到 ${platform}`, 'success');
+      } catch (e) {
+        showStatus(askStatus, '❌ 切换失败', 'error');
+      }
+    };
+
+    // 删除平台
+    window.deletePlatform = async (id) => {
+      if (!confirm('确定删除该平台？')) return;
+      try {
+        await fetch(`${API}/platforms/${id}`, { method: 'DELETE' });
+        loadPlatforms();
+      } catch (e) {
+        alert('删除失败');
+      }
+    };
+
+    // 提问
+    askBtn.addEventListener('click', async () => {
+      const question = questionInput.value.trim();
+      const platform = platformSelect.value;
+
+      if (!question) { showStatus(askStatus, '请输入问题', 'error'); return; }
+
+      showStatus(askStatus, `正在向 ${platform} 提问...（可能需要 30-60 秒）`, 'loading');
+      askBtn.disabled = true;
+      continueBtn.disabled = true;
+      responseBox.style.display = 'none';
+
+      try {
+        const res = await fetch(`${API}/ask`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, platform, newConversation: true })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showStatus(askStatus, `✅ 回答完成！(模式: ${data.mode || '默认'})`, 'success');
+          responseBox.textContent = data.response;
+          responseBox.style.display = 'block';
+          loadHistory();
+        } else {
+          showStatus(askStatus, '❌ ' + data.error, 'error');
+        }
+      } catch (e) {
+        showStatus(askStatus, '❌ 网络错误', 'error');
+      } finally {
+        askBtn.disabled = false;
+        continueBtn.disabled = false;
+      }
+    });
+
+    // 继续对话
+    continueBtn.addEventListener('click', async () => {
+      const question = questionInput.value.trim();
+      const platform = platformSelect.value;
+
+      if (!question) { showStatus(askStatus, '请输入问题', 'error'); return; }
+
+      showStatus(askStatus, `正在追问...`, 'loading');
+      continueBtn.disabled = true;
+
+      try {
+        const res = await fetch(`${API}/continue`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, platform })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showStatus(askStatus, '✅ 追问完成！', 'success');
+          responseBox.textContent = data.response;
+          responseBox.style.display = 'block';
+          loadHistory();
+        } else {
+          showStatus(askStatus, '❌ ' + data.error, 'error');
+        }
+      } catch (e) {
+        showStatus(askStatus, '❌ 网络错误', 'error');
+      } finally {
+        continueBtn.disabled = false;
+      }
+    });
+
+    // 新对话
+    newConvBtn.addEventListener('click', async () => {
+      const platform = platformSelect.value;
+      try {
+        await fetch(`${API}/new-conversation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform })
+        });
+        showStatus(askStatus, '✅ 新对话已开始', 'success');
+        responseBox.style.display = 'none';
+      } catch (e) {
+        showStatus(askStatus, '❌ 操作失败', 'error');
+      }
+    });
+
+    // 加载历史
+    async function loadHistory() {
+      try {
+        const res = await fetch(`${API}/questions?limit=10`);
+        const data = await res.json();
+        historyList.innerHTML = data.map(q => `
+          <div style="padding: 10px; border-bottom: 1px solid #eee; font-size: 14px;">
+            <div style="color: #333;">${q.question.substring(0, 60)}...</div>
+            <div style="color: #999; font-size: 12px; margin-top: 4px;">${new Date(q.created_at).toLocaleString()}</div>
+          </div>
+        `).join('') || '<p style="color: #999; text-align: center;">暂无记录</p>';
+      } catch (e) {
+        console.error('加载历史失败:', e);
+      }
+    }
+
+    // 初始化
+    loadPlatforms();
+    loadHistory();
+  </script>
+</body>
+</html>

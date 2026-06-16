@@ -1,0 +1,39 @@
+{
+  "platforms": {
+    "deepseek": {
+      "name": "DeepSeek",
+      "url": "https://chat.deepseek.com/",
+      "inputSelector": "textarea[placeholder*='发送消息'], textarea",
+      "responseSelector": ".ds-markdown, .markdown-body, [class*='message-content']",
+      "modeSelector": {
+        "expert": "div:has-text('专家模式')",
+        "fast": null
+      },
+      "newConversationSelector": "div:has-text('开启新对话')"
+    },
+    "gemini": {
+      "name": "Gemini",
+      "url": "https://gemini.google.com/",
+      "inputSelector": "textarea, .ql-editor, [contenteditable='true']",
+      "responseSelector": ".model-response-text, .response-content, [class*='message']",
+      "modeSelector": null,
+      "newConversationSelector": null
+    },
+    "chatgpt": {
+      "name": "ChatGPT",
+      "url": "https://chat.openai.com/",
+      "inputSelector": "textarea, #prompt-textarea",
+      "responseSelector": ".markdown, [class*='message-content']",
+      "modeSelector": null,
+      "newConversationSelector": null
+    },
+    "mimo": {
+      "name": "mimo",
+      "url": "https://aistudio.xiaomimimo.com/",
+      "inputSelector": "textarea",
+      "responseSelector": ".markdown",
+      "modeSelector": null,
+      "newConversationSelector": null
+    }
+  }
+}
