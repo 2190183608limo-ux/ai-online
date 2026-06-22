@@ -4,11 +4,17 @@
   "description": "AI 对比服务器 - 自动化提问和抓取",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "check": "node --check server.js && node --check browser.js && node --check database.js && node --check knowledge.js && node --check hooks.js && node --check logger.js && node --check security.js && node --check validator.js && node --check google-auth.js && node --check utils.js"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^4.18.2",
+    "googleapis": "^144.0.0",
     "puppeteer": "^21.7.0",
-    "cors": "^2.8.5"
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "three": "^0.150.0"
   }
 }

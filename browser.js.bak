@@ -381,40 +381,55 @@ class BrowserAutomation {
   }
 
   async _fillInput(page, input, question) {
+    // 先点击输入框获取焦点
     await input.click();
-    await this._smartWait(300);
-    const filledViaJs = await input.evaluate((el, text) => {
+    await this._smartWait(200);
+
+    // 清空现有内容
+    await page.keyboard.down('Control');
+    await page.keyboard.press('a');
+    await page.keyboard.up('Control');
+    await this._smartWait(100);
+    await page.keyboard.press('Backspace');
+    await this._smartWait(200);
+
+    // 使用剪贴板粘贴方式输入（比 type 快且对中文友好）
+    const pasted = await page.evaluate(async (text) => {
       try {
-        const tag = el.tagName.toLowerCase();
-        if (tag === 'textarea' || tag === 'input') {
-          const nativeSetter = Object.getOwnPropertyDescriptor(
-            tag === 'textarea' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype, 'value')?.set;
-          if (nativeSetter) nativeSetter.call(el, text); else el.value = text;
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          return (el.value || '').includes(text.slice(0, 10));
-        }
-        el.focus(); el.textContent = text;
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        return (el.textContent || '').includes(text.slice(0, 10));
-      } catch (_) { return false; }
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (_) {
+        return false;
+      }
     }, question);
-    if (filledViaJs) { logger.info('input filled via JS'); await this._smartWait(400); return true; }
-    logger.info('JS fill failed, using keyboard.type');
-    await input.click(); await this._smartWait(100);
-    await page.keyboard.down('Control'); await page.keyboard.press('a'); await page.keyboard.up('Control');
-    await this._smartWait(50); await page.keyboard.press('Backspace'); await this._smartWait(150);
-    await page.keyboard.type(question, { delay: 10 }); await this._smartWait(400);
-    const hasContent = await input.evaluate((el, t) => {
-      const tag = el.tagName.toLowerCase();
-      if (tag === 'textarea' || tag === 'input') return (el.value || '').includes(t.slice(0, 10));
-      return (el.innerText || el.textContent || '').includes(t.slice(0, 10));
-    }, question);
-    if (!hasContent) {
-      await input.click(); await this._smartWait(50);
-      await page.evaluate((text) => { document.execCommand('insertText', false, text); }, question);
-      await this._smartWait(400);
+
+    if (pasted) {
+      // 用 Ctrl+V 粘贴
+      await page.keyboard.down('Control');
+      await page.keyboard.press('v');
+      await page.keyboard.up('Control');
+      await this._smartWait(500);
+    } else {
+      // 剪贴板不可用，用 keyboard.type 逐字输入
+      await page.keyboard.type(question, { delay: 3 });
+      await this._smartWait(300);
     }
+
+    // 验证输入框是否有内容
+    const hasContent = await input.evaluate(el => {
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'textarea' || tag === 'input') return (el.value || '').trim().length > 0;
+      return (el.innerText || el.textContent || '').trim().length > 0;
+    });
+
+    if (!hasContent) {
+      logger.warn('input appears empty after fill, trying keyboard.type fallback');
+      await input.click();
+      await this._smartWait(100);
+      await page.keyboard.type(question, { delay: 3 });
+      await this._smartWait(300);
+    }
+
     return true;
   }
 
@@ -445,13 +460,9 @@ class BrowserAutomation {
 
       logger.info(`[${platformId}] input found`, { selector });
       await this._fillInput(page, input, String(question));
-      await this._smartWait(800);
-      await input.evaluate(el => {
-        el.dispatchEvent(new Event('input', { bubbles: true }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'a' }));
-        el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: 'a' }));
-      }).catch(() => {});
+      await this._smartWait(600);
+
+      // 等一下再提交，让前端框架有时间处理输入事件
       await this._smartWait(500);
 
       const clicked = await this._clickSubmitIfAvailable(platformId, page);
@@ -512,33 +523,21 @@ class BrowserAutomation {
     if (!page || page.isClosed()) throw new Error(`${platformId} has no open page`);
 
     const selectors = this._splitSelectors(platform.responseSelector);
-    const fallbackSelectors = [
-      '[data-message-author-role="assistant"]',
-      '[class*="assistant"]',
-      '[class*="markdown"]',
-      '[class*="message-content"]',
-      '[class*="answer"]',
-      '[class*="response"]',
-      '.markdown-body'
-    ];
-    const allSelectors = [...selectors];
-    for (const s of fallbackSelectors) {
-      if (!allSelectors.includes(s)) allSelectors.push(s);
-    }
 
     return page.evaluate((selectors) => {
-      const cleanText = text => String(text || '').replace(/\u00a0/g, ' ').replace(/[\t\r ]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+      const cleanText = text => String(text || '')
+        .replace(/\u00a0/g, ' ')
+        .replace(/[\t\r ]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
       const isVisible = el => {
         const style = window.getComputedStyle(el);
         const rect = el.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+        return rect.width > 0 && rect.height > 0 &&
+          style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
       };
-      const hasImages = el => {
-        for (const img of el.querySelectorAll('img')) { if (img.src && img.naturalWidth > 0) return true; }
-        if (el.querySelector('svg') || el.querySelector('canvas')) return true;
-        if (el.querySelectorAll('[style*="background-image"]').length > 0) return true;
-        return false;
-      };
+
       const seen = new Set();
       const items = [];
       for (const selector of selectors) {
@@ -547,43 +546,27 @@ class BrowserAutomation {
         for (const el of elements) {
           if (!isVisible(el)) continue;
           const text = cleanText(el.innerText || el.textContent || '');
-          const imgCount = el.querySelectorAll('img').length;
-          const hasVisual = hasImages(el);
-          if ((!text || text.length < 2) && !hasVisual) continue;
-          const key = selector + ':' + (text || '') + ':img' + imgCount;
+          if (!text || text.length < 2) continue;
+          const key = `${selector}:${text}`;
           if (seen.has(key)) continue;
           seen.add(key);
-          const imgUrls = [];
-          for (const img of el.querySelectorAll('img')) {
-            if (img.src) imgUrls.push(img.src);
-          }
-          // 也抓取 canvas 的 dataURL（如果不太大的话）
-          for (const cvs of el.querySelectorAll('canvas')) {
-            try { imgUrls.push(cvs.toDataURL('image/png')); } catch (_) {}
-          }
-          const displayText = text && text.length >= 2 ? text : '[图片内容' + (imgCount > 0 ? ' x' + imgCount : '') + ']';
-          items.push({ selector, text: displayText, length: displayText.length, hasImages: hasVisual, imgCount, images: imgUrls });
+          items.push({ selector, text, length: text.length });
         }
       }
       return items;
-    }, allSelectors);
+    }, selectors);
   }
 
   _selectNewResponse(snapshot, baseline) {
     const baseTexts = new Set((baseline || []).map(x => x.text));
-    let bestText = '';
-    let bestImages = [];
-    for (let i = 0; i < snapshot.length; i += 1) {
-      const item = snapshot[i];
-      const text = item.text;
-      if (!text || baseTexts.has(text)) continue;
-      const minLen = text.startsWith('[图片内容') ? 4 : 10;
-      if (text.length > minLen && text.length > bestText.length) {
-        bestText = text;
-        bestImages = item.images || [];
-      }
+    const baseLast = baseline && baseline.length ? baseline[baseline.length - 1].text : '';
+
+    for (let i = snapshot.length - 1; i >= 0; i -= 1) {
+      const text = snapshot[i].text;
+      if (!baseTexts.has(text) && text.length > 20) return text;
+      if (baseLast && text !== baseLast && text.length > baseLast.length + 20) return text;
     }
-    return { text: bestText, images: bestImages };
+    return '';
   }
 
   async _isLoading(platformId) {
@@ -592,25 +575,6 @@ class BrowserAutomation {
     if (!page || page.isClosed()) throw new Error(`${platformId} has no open page`);
 
     const selectors = this._splitSelectors(platform.loadingSelector || '');
-    if (platform.stopSelector) {
-      const stopSels = this._splitSelectors(platform.stopSelector);
-      for (const sel of stopSels) {
-        try {
-          const handles = await page.$(sel);
-          for (const handle of handles) {
-            const visible = await handle.evaluate(el => {
-              const style = window.getComputedStyle(el);
-              const rect = el.getBoundingClientRect();
-              return rect.width > 0 && rect.height > 0 &&
-                style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-            });
-            if (visible) return true;
-          }
-        } catch (e) {
-          if (this._isRecoverableBrowserError(e)) throw e;
-        }
-      }
-    }
     if (selectors.length === 0) return false;
 
     for (const selector of selectors) {
@@ -643,8 +607,6 @@ class BrowserAutomation {
     const start = Date.now();
     let lastContent = '';
     let lastHash = '';
-    let lastLoadingAt = 0;
-    let lastImages = [];
     let stableCount = 0;
 
     while (Date.now() - start < maxWait) {
@@ -673,19 +635,15 @@ class BrowserAutomation {
         throw this._wrapRecoverableError(platformId, error, 'waiting for a response');
       }
 
-      if (isLoading) { stableCount = 0; lastLoadingAt = Date.now(); }
+      if (isLoading) stableCount = 0;
 
-      const { text: candidateText, images: candidateImages } = this._selectNewResponse(snapshot, baseline);
-      if (!candidateText) continue;
-      const candidate = candidateText;
+      const candidate = this._selectNewResponse(snapshot, baseline);
+      if (!candidate) continue;
 
       const hash = `${candidate.length}:${candidate.slice(-120)}`;
-      const isGrowing = candidate.length >= lastContent.length;
-      const isNewEnding = hash !== lastHash;
-      if (isGrowing && isNewEnding) {
+      if (candidate.length > lastContent.length || hash !== lastHash) {
         lastContent = candidate;
         lastHash = hash;
-        lastImages = candidateImages || [];
         stableCount = 0;
         logger.info(`[${platformId}] receiving response`, {
           length: lastContent.length,
@@ -695,17 +653,7 @@ class BrowserAutomation {
         stableCount += 1;
       }
 
-      const postLoadWait = lastLoadingAt > 0 ? Date.now() - lastLoadingAt : Infinity;
-      const isImageResponse = lastContent.startsWith('[图片内容');
-      let atBottom = false;
-      try {
-        atBottom = await page.evaluate(() => {
-          const el = document.scrollingElement || document.documentElement;
-          return el.scrollTop + el.clientHeight >= el.scrollHeight - 100;
-        }).catch(() => false);
-      } catch (_) {}
-      const neededPolls = atBottom ? Math.min(STABLE_POLLS, 3) : Math.min(STABLE_POLLS, 4);
-      if ((isImageResponse || lastContent.length > 20) && stableCount >= neededPolls && postLoadWait > 2000) {
+      if (lastContent.length > 20 && stableCount >= STABLE_POLLS) {
         const duration = Date.now() - start;
         logger.info(`[${platformId}] response complete`, { length: lastContent.length, duration });
         this._emit(hooks.BROWSER_EVENTS.RESPONSE_RECEIVED, {
@@ -714,7 +662,7 @@ class BrowserAutomation {
           duration,
           partial: false
         });
-        return { response: lastContent, images: lastImages, partial: false, duration };
+        return { response: lastContent, partial: false, duration };
       }
     }
 
@@ -722,7 +670,7 @@ class BrowserAutomation {
     if (lastContent) {
       logger.warn(`[${platformId}] response timed out but partial content exists`, { length: lastContent.length, duration });
       this._emit(hooks.BROWSER_EVENTS.RESPONSE_TIMEOUT, { platformId, duration, partial: true });
-      return { response: lastContent, images: lastImages, partial: true, duration };
+      return { response: lastContent, partial: true, duration };
     }
 
     this._emit(hooks.BROWSER_EVENTS.RESPONSE_TIMEOUT, { platformId, duration, partial: false });

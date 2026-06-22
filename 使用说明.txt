@@ -8,7 +8,7 @@
 
 方法2：命令行启动
   1. 打开命令行（Win+R，输入 cmd）
-  2. 输入以下命令：
+  2. 输入以下命令：（示例）
      cd C:\Users\~\Desktop\contect\ai-compare-server
      node server.js
 

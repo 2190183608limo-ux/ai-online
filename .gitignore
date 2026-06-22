@@ -1,22 +1,10 @@
-# Dependencies
-node_modules/
-
-# Runtime data
+.env
+credentials.json
+token.json
+service-account.json
 browser-data/
 data/
-screenshots/
-
-# Environment variables
-.env
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# Logs
+knowledge/
+logs/
+node_modules/
 *.log
-npm-debug.log*

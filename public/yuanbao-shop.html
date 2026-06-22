@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>在线购物平台</title>
+<style>
+ :root {
+ --primary: #4f46e5;
+ --bg: #f5f6fa;
+ --card: #ffffff;
+ --radius: 12px;
+ }
+ * { margin:0; padding:0; box-sizing:border-box; font-family: "Segoe UI", sans-serif; }
+ body { background: var(--bg); color:#333; }
+
+ /* Header */
+ header {
+ background: var(--primary);
+ color:#fff;
+ padding:15px 20px;
+ display:flex;
+ justify-content:space-between;
+ align-items:center;
+ position:sticky;
+ top:0;
+ z-index:1000;
+ }
+ header h1 { font-size:20px; }
+ nav a {
+ color:#fff;
+ margin-left:15px;
+ text-decoration:none;
+ cursor:pointer;
+ position:relative;
+ }
+ .cart-count {
+ background:red;
+ color:#fff;
+ font-size:12px;
+ padding:2px 6px;
+ border-radius:50%;
+ position:absolute;
+ top:-8px;
+ right:-10px;
+ }
+
+ /* Container */
+ .container { max-width:1200px; margin:20px auto; padding:0 15px; }
+
+ /* Product Grid */
+ .products {
+ display:grid;
+ grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+ gap:20px;
+ }
+ .product-card {
+ background: var(--card);
+ border-radius: var(--radius);
+ padding:15px;
+ box-shadow:0 4px 10px rgba(0,0,0,0.08);
+ cursor:pointer;
+ transition: transform .2s;
+ }
+ .product-card:hover { transform:translateY(-5px); }
+ .product-card img {
+ width:100%;
+ height:180px;
+ object-fit:cover;
+ border-radius:8px;
+ }
+ .product-card h3 { margin:10px 0 5px; font-size:16px; }
+ .product-card p { color:#666; font-size:14px; }
+ .price { color:var(--primary); font-weight:bold; margin-top:8px; }
+
+ /* Modal */
+ .modal {
+ display:none;
+ position:fixed;
+ inset:0;
+ background:rgba(0,0,0,0.5);
+ justify-content:center;
+ align-items:center;
+ z-index:2000;
+ }
+ .modal.active { display:flex; }
+ .modal-content {
+ background:#fff;
+ padding:20px;
+ border-radius:var(--radius);
+ width:90%;
+ max-width:500px;
+ }
+ .modal-content img { width:100%; border-radius:8px; }
+ .modal-content h2 { margin:10px 0; }
+ .modal-content button {
+ margin-top:15px;
+ width:100%;
+ padding:10px;
+ border:none;
+ border-radius:8px;
+ background:var(--primary);
+ color:#fff;
+ font-size:16px;
+ cursor:pointer;
+ }
+
+ /* Cart */
+ .cart-item {
+ display:flex;
+ align-items:center;
+ background:#fff;
+ border-radius:var(--radius);
+ padding:15px;
+ margin-bottom:15px;
+ }
+ .cart-item img {
+ width:80px;
+ height:80px;
+ object-fit:cover;
+ border-radius:8px;
+ }
+ .cart-info { flex:1; margin-left:15px; }
+ .cart-info h4 { margin-bottom:5px; }
+ .qty-btn {
+ display:inline-flex;
+ align-items:center;
+ gap:5px;
+ margin-top:8px;
+ }
+ .qty-btn button {
+ width:28px; height:28px;
+ border-radius:50%;
+ border:1px solid #ccc;
+ background:#fff;
+ cursor:pointer;
+ }
+ .remove { color:red; cursor:pointer; margin-top:8px; display:inline-block; }
+
+ /* Checkout */
+ .checkout-box {
+ background:#fff;
+ padding:20px;
+ border-radius:var(--radius);
+ margin-top:20px;
+ }
+ .checkout-box h3 { margin-bottom:10px; }
+
+ footer {
+ text-align:center;
+ padding:20px;
+ background:#fff;
+ margin-top:40px;
+ color:#888;
+ }
+
+ @media (max-width:600px) {
+ .cart-item { flex-direction:column; text-align:center; }
+ .cart-info { margin-left:0; margin-top:10px; }
+ }
+</style>
+</head>
+<body>
+
+<header>
+ <h1>🛒 在线商城</h1>
+ <nav>
+ <a onclick="showPage('home')">首页</a>
+ <a onclick="showPage('cart')">购物车 <span class="cart-count" id="cartCount">0</span></a>
+ <a onclick="showPage('checkout')">结算</a>
+ </nav>
+</header>
+
+<div class="container" id="app"></div>
+
+<footer>© 2026 在线购物平台 | 仅供演示</footer>
+
+<!-- Product Detail Modal -->
+<div class="modal" id="productModal">
+ <div class="modal-content">
+ <img id="modalImg" src="" alt="">
+ <h2 id="modalTitle"></h2>
+ <p id="modalDesc"></p>
+ <p class="price" id="modalPrice"></p>
+ <button onclick="addToCartFromModal()">加入购物车</button>
+ <button onclick="closeModal()" style="background:#ccc;color:#333;margin-top:10px;">关闭</button>
+ </div>
+</div>
+
+<script>
+ const products = [
+ {id:1, name:"无线蓝牙耳机", price:199, img:"https://picsum.photos/seed/1/400/300", desc:"高品质无线蓝牙耳机，降噪设计"},
+ {id:2, name:"机械键盘", price:349, img:"https://picsum.photos/seed/2/400/300", desc:"青轴机械键盘，RGB背光"},
+ {id:3, name:"便携充电宝", price:129, img:"https://picsum.photos/seed/3/400/300", desc:"20000mAh大容量充电宝"},
+ {id:4, name:"智能手表", price:799, img:"https://picsum.photos/seed/4/400/300", desc:"运动健康监测智能手表"},
+ {id:5, name:"USB-C扩展坞", price:259, img:"https://picsum.photos/seed/5/400/300", desc:"多接口扩展坞，即插即用"},
+ {id:6, name:"4K显示器", price:1899, img:"https://picsum.photos/seed/6/400/300", desc:"27寸4K高清显示器"},
+ {id:7, name:"人体工学椅", price:1299, img:"https://picsum.photos/seed/7/400/300", desc:"舒适办公人体工学椅"},
+ {id:8, name:"迷你投影仪", price:1599, img:"https://picsum.photos/seed/8/400/300", desc:"高清便携家用投影仪"}
+ ];
+
+ let cart = JSON.parse(localStorage.getItem("cart")) || [];
+ let currentProduct = null;
+
+ function saveCart() {
+ localStorage.setItem("cart", JSON.stringify(cart));
+ document.getElementById("cartCount").innerText = cart.reduce((s,i)=>s+i.qty,0);
+ }
+
+ function showPage(page) {
+ const app = document.getElementById("app");
+ if(page === "home") renderHome(app);
+ if(page === "cart") renderCart(app);
+ if(page === "checkout") renderCheckout(app);
+ }
+
+ function renderHome(app) {
+ app.innerHTML = `<h2 style="margin-bottom:15px;">热门商品</h2>
+ <div class="products">
+ ${products.map(p => `
+ <div class="product-card" onclick="openModal(${p.id})">
+ <img src="${p.img}" alt="${p.name}">
+ <h3>${p.name}</h3>
+ <p>${p.desc}</p>
+ <div class="price">￥${p.price}</div>
+ </div>
+ `).join("")}
+ </div>`;
+ }
+
+ function openModal(id) {
+ currentProduct = products.find(p=>p.id===id);
+ document.getElementById("modalImg").src = currentProduct.img;
+ document.getElementById("modalTitle").innerText = currentProduct.name;
+ document.getElementById("modalDesc").innerText = currentProduct.desc;
+ document.getElementById("modalPrice").innerText = "￥" + currentProduct.price;
+ document.getElementById("productModal").classList.add("active");
+ }
+
+ function closeModal() {
+ document.getElementById("productModal").classList.remove("active");
+ }
+
+ function addToCartFromModal() {
+ addToCart(currentProduct.id);
+ closeModal();
+ }
+
+ function addToCart(id) {
+ const item = cart.find(i=>i.id===id);
+ item ? item.qty++ : cart.push({id, qty:1});
+ saveCart();
+ alert("已加入购物车");
+ }
+
+ function renderCart(app) {
+ if(cart.length===0) { app.innerHTML="<p>购物车为空</p>"; return; }
+ app.innerHTML = cart.map(i=>{
+ const p = products.find(p=>p.id===i.id);
+ return `
+ <div class="cart-item">
+ <img src="${p.img}" alt="">
+ <div class="cart-info">
+ <h4>${p.name}</h4>
+ <p>单价：￥${p.price}</p>
+ <div class="qty-btn">
+ <button onclick="changeQty(${i.id},-1)">-</button>
+ <span>${i.qty}</span>
+ <button onclick="changeQty(${i.id},1)">+</button>
+ </div>
+ <div class="remove" onclick="removeItem(${i.id})">删除</div>
+ </div>
+ </div>`;
+ }).join("") + `<div class="checkout-box"><h3>合计：￥${total()}</h3></div>`;
+ }
+
+ function changeQty(id, n) {
+ const item = cart.find(i=>i.id===id);
+ item.qty += n;
+ if(item.qty<1) cart = cart.filter(i=>i.id!==id);
+ saveCart();
+ renderCart(document.getElementById("app"));
+ }
+
+ function removeItem(id) {
+ cart = cart.filter(i=>i.id!==id);
+ saveCart();
+ renderCart(document.getElementById("app"));
+ }
+
+ function total() {
+ return cart.reduce((s,i)=> s + i.qty * products.find(p=>p.id===i.id).price, 0);
+ }
+
+ function renderCheckout(app) {
+ if(cart.length===0) { app.innerHTML="<p>暂无结算订单</p>"; return; }
+ app.innerHTML = `
+ <div class="checkout-box">
+ <h3>订单结算</h3>
+ <ul>${cart.map(i=>{
+ const p=products.find(x=>x.id===i.id);
+ return `<li>${p.name} × ${i.qty} = ￥${p.price*i.qty}</li>`;
+ }).join("")}</ul>
+ <h3 style="margin-top:15px;">应付金额：￥${total()}</h3>
+ <button style="margin-top:15px;width:100%;padding:12px;border:none;border-radius:8px;background:var(--primary);color:#fff;font-size:16px;" onclick="alert('支付成功！')">立即支付</button>
+ </div>`;
+ }
+
+ // Init
+ showPage("home");
+ saveCart();
+</script>
+</body>
+</html>

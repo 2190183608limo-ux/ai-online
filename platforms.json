@@ -3,38 +3,98 @@
     "deepseek": {
       "name": "DeepSeek",
       "url": "https://chat.deepseek.com/",
-      "inputSelector": "textarea[placeholder*='发送消息'], textarea",
-      "responseSelector": ".ds-markdown, .markdown-body, [class*='message-content']",
-      "modeSelector": {
-        "expert": "div:has-text('专家模式')",
-        "fast": null
-      },
-      "newConversationSelector": "div:has-text('开启新对话')",
-      "captchaIndicators": []
+      "inputSelector": "textarea#chat-input, textarea[placeholder], textarea, div[contenteditable='true'], [role='textbox']",
+      "responseSelector": "div.ds-markdown--block, div.ds-assistant-message-main-content, div.ds-markdown, div[class*='message'][class*='assistant'], div[class*='ds-markdown'], div[class*='markdown--block']",
+      "loadingSelector": "div[class*='loading'], div[class*='thinking'], div.ds-loading, div[class*='generating'], div[class*='spinner']",
+      "stopSelector": "div[class*='stop'], button[class*='stop'], button[aria-label*='stop'], button[aria-label*='Stop']",
+      "modeSelector": null,
+      "newConversationSelector": "div[class*='new-chat'], a[href='/new']",
+      "captchaIndicators": [],
+      "submitSelector": "button[class*='send'], div[class*='send'], button[aria-label*='send'], button[aria-label*='Send'], div.ds-icon-button"
     },
     "gemini": {
       "name": "Gemini",
       "url": "https://gemini.google.com/",
-      "inputSelector": "textarea, .ql-editor, [contenteditable='true']",
-      "responseSelector": ".model-response-text, .response-content, [class*='message']",
+      "inputSelector": "div[contenteditable='true'], rich-textarea textarea, .ql-editor",
+      "responseSelector": ".model-response-text .markdown, .response-container .markdown, message-content .markdown, .model-response-text",
+      "loadingSelector": ".loading-indicator, .thinking-indicator, mat-progress-bar",
+      "stopSelector": "button[aria-label*='Stop']",
       "modeSelector": null,
-      "newConversationSelector": null,
+      "newConversationSelector": "button[aria-label*='New chat'], a[href='/']",
       "captchaIndicators": []
     },
     "chatgpt": {
       "name": "ChatGPT",
       "url": "https://chat.openai.com/",
-      "inputSelector": "textarea, #prompt-textarea",
-      "responseSelector": ".markdown, [class*='message-content']",
+      "inputSelector": "textarea#prompt-textarea, div[contenteditable='true']",
+      "responseSelector": "div[data-message-author-role='assistant'] .markdown, div[data-message-author-role='assistant']",
+      "loadingSelector": "button[aria-label='Stop generating'], .result-streaming, div[class*='spinner']",
+      "stopSelector": "button[aria-label='Stop generating']",
       "modeSelector": null,
       "newConversationSelector": "nav a[href='/']",
       "captchaIndicators": [
         "iframe[src*='challenges.cloudflare.com']",
-        "#challenge-running",
-        "#challenge-stage",
-        "[class*='cf-turnstile']",
-        "input[name='cf-turnstile-response']"
+        "#challenge-running"
       ]
+    },
+    "claude": {
+      "name": "Claude",
+      "url": "https://claude.ai/",
+      "inputSelector": "div[contenteditable='true'], .ProseMirror, fieldset div[contenteditable]",
+      "responseSelector": "div.font-claude-message, div[class*='assistant-message'], div[data-is-streaming]",
+      "loadingSelector": "div[data-is-streaming='true'], div[class*='thinking'], div[class*='loading']",
+      "stopSelector": "button[aria-label*='Stop']",
+      "modeSelector": null,
+      "newConversationSelector": "a[href='/new'], button[class*='new-chat']",
+      "captchaIndicators": [
+        "iframe[src*='challenges.cloudflare.com']",
+        "#challenge-running"
+      ]
+    },
+    "qianwen": {
+      "name": "通义千问",
+      "url": "https://tongyi.aliyun.com/qianwen/",
+      "inputSelector": "textarea#chat-input, div[contenteditable='true'], textarea[placeholder]",
+      "responseSelector": "div[class*='message--content'], div[class*='answer-content'], div[class*='markdown']",
+      "loadingSelector": "div[class*='loading'], div[class*='thinking'], div[class*='generating']",
+      "stopSelector": "div[class*='stop'], button[class*='stop']",
+      "modeSelector": null,
+      "newConversationSelector": "div[class*='new-chat']",
+      "captchaIndicators": []
+    },
+    "doubao": {
+      "name": "豆包",
+      "url": "https://www.doubao.com/chat/",
+      "inputSelector": "textarea.semi-input-textarea, textarea[placeholder], div[contenteditable='true']",
+      "responseSelector": "[class*='container-'], [class*='code-block-element'], [class*='content-']",
+      "loadingSelector": "[class*='loading'], [class*='thinking'], [class*='generating'], [class*='typing']",
+      "stopSelector": "[class*='stop'], button[class*='stop']",
+      "modeSelector": null,
+      "newConversationSelector": "[class*='new-chat']",
+      "captchaIndicators": []
+    },
+    "yuanbao": {
+      "name": "元宝",
+      "url": "https://yuanbao.tencent.com/",
+      "inputSelector": "div.ql-editor, div[contenteditable='true'], textarea",
+      "responseSelector": "[class*='agent-dialogue__content'], [class*='agent-chat__speech'], [class*='content-md'], [class*='markdown']",
+      "loadingSelector": "[class*='loading'], [class*='thinking'], [class*='generating'], [class*='typing']",
+      "stopSelector": "[class*='stop'], button[class*='stop']",
+      "modeSelector": null,
+      "newConversationSelector": "[class*='new-chat'], button[class*='new']",
+      "captchaIndicators": []
+    },
+    "mimo": {
+      "name": "Mimo",
+      "url": "https://aistudio.xiaomimimo.com/",
+      "inputSelector": "textarea, div[contenteditable='true'], input[placeholder]",
+      "responseSelector": "div[class*='message-content'], div[class*='markdown'], div[class*='response-text'], div[class*='answer'], div[class*='content']",
+      "loadingSelector": "div[class*='loading'], div[class*='thinking'], div[class*='typing'], div[class*='generating']",
+      "stopSelector": "button[class*='stop'], div[class*='stop']",
+      "submitSelector": "button[type='submit'], button[class*='send'], div[class*='send']",
+      "modeSelector": null,
+      "newConversationSelector": "button[class*='new'], div[class*='new-chat'], a[href*='new']",
+      "captchaIndicators": []
     }
   }
 }
